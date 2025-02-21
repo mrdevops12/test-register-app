@@ -33,13 +33,16 @@ pipeline {
         stage("SonarQube Analysis") {
             steps {
                 script {
-                    withSonarQubeEnv('sonarqube-server') {  // Correct SonarQube server reference
-                        sh """
-                        mvn sonar:sonar \
-                        -Dsonar.projectKey=sqp_7f29f996fc8521fc686c58c7be78a94023415aa6 \
-                        -Dsonar.projectName=tt-maven \
-                        -Dsonar.host.url=http://107.21.176.4:9000
-                        """
+                    withSonarQubeEnv('sonarqube-server') {
+                        withCredentials([string(credentialsId: 'jenkins-sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            sh """
+                            mvn sonar:sonar \
+                            -Dsonar.projectKey=sqp_7f29f996fc8521fc686c58c7be78a94023415aa6 \
+                            -Dsonar.projectName=tt-maven \
+                            -Dsonar.host.url=http://107.21.176.4:9000 \
+                            -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
