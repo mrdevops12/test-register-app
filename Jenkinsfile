@@ -1,49 +1,27 @@
 pipeline {
     agent any
-    tools {
-        jdk 'Java17'
-        maven 'Maven3'
-    }
 
     stages {
-        stage("Cleanup Workspace") {
+        stage('Checkout') {
             steps {
-                cleanWs()
+                git 'https://github.com/mrdevops12/test-register-app.git'
             }
         }
-
-        stage("Checkout from SCM") {
+        stage('Build') {
             steps {
-                git branch: 'main', credentialsId: 'github', url: 'https://github.com/mrdevops12/test-register-app.git'
+                sh 'mvn clean install'
             }
         }
-
-        stage("Build Application") {
+        stage('SonarQube Analysis') {
             steps {
-                sh "mvn clean package"
-            }
-        }
-
-        stage("Test Application") {
-            steps {
-                sh "mvn test"
-            }
-        }
-
-        stage("SonarQube Analysis") {
-            steps {
-                script {
-                    withSonarQubeEnv('sonarqube-server') {
-                        withCredentials([string(credentialsId: 'jenkins-sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh """
-                            mvn sonar:sonar \
-                            -Dsonar.projectKey=sqp_7f29f996fc8521fc686c58c7be78a94023415aa6 \
-                            -Dsonar.projectName=tt-maven \
-                            -Dsonar.host.url=http://107.21.176.4:9000 \
-                            -Dsonar.login=$SONAR_TOKEN
-                            """
-                        }
-                    }
+                withSonarQubeEnv('sonarqube-scanner') {
+                    sh '''
+                      mvn sonar:sonar \
+                      -Dsonar.projectKey=jenkins-maven \
+                      -Dsonar.host.url=http://107.21.176.4:9000 \
+                      -Dsonar.login=sqa_4d283dbc2899d98e66c57af9a02dbdeac4326637 \
+                      -Dsonar.java.binaries=server/target/classes
+                    '''
                 }
             }
         }
