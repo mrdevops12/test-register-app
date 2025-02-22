@@ -7,13 +7,13 @@ pipeline {
     }
 
     environment {
-            SONARQUBE_ENV = 'sonarqube-server'  // Ensure this matches your SonarQube config ID in Jenkins
-            APP_NAME = "register-app-pipeline"
-            RELEASE = "1.0.0"
-            DOCKER_USER = "rajuvarma"
-            DOCKER_PASS = 'dockerhub'
-            IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
-            IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
+        SONARQUBE_ENV = 'sonarqube-server'  // Ensure this matches your SonarQube config ID in Jenkins
+        APP_NAME = "register-app-pipeline"
+        RELEASE = "1.0.0"
+        DOCKER_USER = "rajuvarma"
+        DOCKER_CREDENTIALS = 'dockerhub'   // ✅ Use credentialsId from Jenkins
+        IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
+        IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
     }
 
     stages {
@@ -39,29 +39,38 @@ pipeline {
             steps {
                 sh "mvn test"
             }
-        }     
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml' // ✅ Shows test results in Jenkins
+                }
+            }
+        }
 
         stage('Package Application') {
             steps {
                 sh "mvn package"
             }
         }
+
         stage("Build & Push Docker Image") {
             steps {
                 script {
-                    docker.withRegistry('',DOCKER_PASS) {
-                        docker_image = docker.build "${IMAGE_NAME}"
-                    }
-
-                    docker.withRegistry('',DOCKER_PASS) {
+                    docker.withRegistry('', DOCKER_CREDENTIALS) {
+                        def docker_image = docker.build("${IMAGE_NAME}")
                         docker_image.push("${IMAGE_TAG}")
                         docker_image.push('latest')
                     }
                 }
             }
-
-       }
+        }
     }
 
-    
+    post {
+        success {
+            echo "✅ Build and Docker push succeeded!"
+        }
+        failure {
+            echo "❌ Build failed. Check the logs above."
+        }
+    }
 }
