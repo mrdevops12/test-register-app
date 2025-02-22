@@ -33,17 +33,7 @@ pipeline {
             steps {
                 sh "mvn test"
             }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    withSonarQubeEnv(env.SONARQUBE_ENV) {
-                        sh "mvn sonar:sonar -Dsonar.projectKey=jenkins-maven -Dsonar.java.binaries=server/target/classes,webapp/target/classes"
-                    }
-                }
-            }
-        }
+        }     
 
         stage('Package Application') {
             steps {
@@ -52,10 +42,5 @@ pipeline {
         }
     }
 
-    post {
-        always {
-            junit '**/target/surefire-reports/*.xml'
-            archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
-        }
-    }
+    
 }
