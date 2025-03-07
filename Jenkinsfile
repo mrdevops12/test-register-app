@@ -7,15 +7,14 @@ pipeline {
     }
 
     environment {
-        SONARQUBE_ENV = 'sonarqube-server'  // Ensure this matches your SonarQube config ID in Jenkins
+        SONARQUBE_ENV = 'sonarqube-server'
         APP_NAME = "register-app-pipeline"
         RELEASE = "1.0.0"
         DOCKER_USER = "rajuvarma"
-        DOCKER_CREDENTIALS = 'dockerhub'   // ✅ Use credentialsId from Jenkins
+        DOCKER_CREDENTIALS = 'dockerhub'  // Must exist in Jenkins
         IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-	JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
-	
+        JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
     }
 
     stages {
@@ -37,17 +36,6 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                sh "mvn test"
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml' // ✅ Shows test results in Jenkins
-                }
-            }
-        }
-
         stage('Package Application') {
             steps {
                 sh "mvn package"
@@ -65,38 +53,37 @@ pipeline {
                 }
             }
         }
-        stage("Trivy Scan") {
-           steps {
-               script {
-	            sh ('docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image rajuvarma/register-app-pipeline:latest --no-progress --scanners vuln  --exit-code 0 --severity HIGH,CRITICAL --format table')
-               }
-           }
-       }
 
-       stage ('Cleanup Artifacts') {
-           steps {
-               script {
-                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker rmi ${IMAGE_NAME}:latest"
-               }
-          }
-       }
-       
-    }
-	stage("Trigger CD Pipeline") {
-          steps {
-             script {
-                sh """
-                   curl -v -k --user Mahesh:${JENKINS_API_TOKEN} \
-                   -X POST \
-                   -H 'cache-control: no-cache' \
-                   -H 'content-type: application/x-www-form-urlencoded' \
-                   --data 'IMAGE_TAG=${IMAGE_TAG}' \
-                   'http://ec2-54-167-245-164.compute-1.amazonaws.com:8080/job/test-cd/buildWithParameters?token=gitops-token'
-                """
+        stage("Trivy Scan") {
+            steps {
+                script {
+                    sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
+                }
+            }
+        }
+
+        stage('Cleanup Artifacts') {
+            steps {
+                sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "docker rmi ${IMAGE_NAME}:latest"
+            }
+        }
+
+        stage("Trigger CD Pipeline") {
+            steps {
+                script {
+                    sh """
+                       curl -v -k --user Mahesh:${JENKINS_API_TOKEN} \
+                       -X POST \
+                       -H 'cache-control: no-cache' \
+                       -H 'content-type: application/x-www-form-urlencoded' \
+                       --data 'IMAGE_TAG=${IMAGE_TAG}' \
+                       'http://ec2-54-167-245-164.compute-1.amazonaws.com:8080/job/test-cd/buildWithParameters?token=gitops-token'
+                    """
+                }
+            }
         }
     }
-}       
 
     post {
         success {
